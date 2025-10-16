@@ -3,6 +3,7 @@ import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
 import { TaskType } from "@google/generative-ai";
 import { QdrantVectorStore } from "@langchain/qdrant";
 import { PDFLoader } from "@langchain/community/document_loaders/fs/pdf";
+import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 import path from "path";
 import dotenv from "dotenv";
 
@@ -23,13 +24,30 @@ const worker = new Worker(
       const fixedPath = path.resolve(data.path).replace(/\\/g, "/");
       console.log("📁 Fixed path:", fixedPath);
 
-      // --- Load PDF ---
-      const loader = new PDFLoader(fixedPath);
-      const docs = await loader.load();
-      console.log(`✅ Loaded ${docs.length} PDF document(s)`);
+      // --- Load PDF with proper configuration ---
+      const loader = new PDFLoader(fixedPath, {
+        splitPages: true, // Split into pages
+      });
+      
+      const rawDocs = await loader.load();
+      console.log(`📄 Loaded ${rawDocs.length} page(s) from PDF`);
+
+      if (rawDocs.length === 0) {
+        console.warn("⚠️ No content found in PDF! Skipping upload to Qdrant.");
+        return;
+      }
+
+      // --- Split documents into smaller chunks ---
+      const textSplitter = new RecursiveCharacterTextSplitter({
+        chunkSize: 1000,
+        chunkOverlap: 200,
+      });
+
+      const docs = await textSplitter.splitDocuments(rawDocs);
+      console.log(`✂️ Split into ${docs.length} chunk(s)`);
 
       if (docs.length === 0) {
-        console.warn("⚠️ No content found in PDF! Skipping upload to Qdrant.");
+        console.warn("⚠️ No content after splitting! Skipping upload to Qdrant.");
         return;
       }
 

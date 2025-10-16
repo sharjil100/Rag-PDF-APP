@@ -66,7 +66,7 @@ app.post("/upload/pdf", upload.single("pdf"), async (req, res) => {
 });
 
 // ---- Simple retrieval route: query existing Qdrant collection ----
-app.get("/chat", async (_req, res) => {
+app.get("/chat", async (req, res) => {
   try {
     const userQuery = req.query.message;
 
